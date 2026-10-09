@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>VECTRA — Orbital Telemetry</title>
+<meta name="description" content="VECTRA turns raw downlink into decisions: position, health and intent for every object you fly, in one feed.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@300;500;700&family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono:wght@400&display=swap" rel="stylesheet">
+<style>
+/* ---------- tokens ---------- */
+:root{
+  --space:#050811;
+  --deep:#0B1222;
+  --line:#1C2A47;
+  --mist:#8FA0BF;
+  --paper:#E8EEF7;
+  --ion:#6FE3FF;
+  --sun:#FFB454;
+  --alert:#FF6A5C;
+  --display:'Unbounded',ui-sans-serif,system-ui,sans-serif;
+  --body:'IBM Plex Sans',ui-sans-serif,system-ui,sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,'SF Mono',Menlo,monospace;
+  --gutter:clamp(20px,5vw,72px);
+  --measure:62ch;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+*,*::before,*::after{box-sizing:inherit;margin:0;padding:0}
+html{scroll-padding-top:env(safe-area-inset-top,0px);scroll-behavior:smooth}
+html,body{height:100%}
+body{
+  background:var(--space);
+  color:var(--paper);
+  font-family:var(--body);
+  font-size:clamp(16px,1.05vw + 10px,19px);
+  line-height:1.55;
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+a{color:inherit}
+:focus-visible{outline:2px solid var(--sun);outline-offset:4px}
+img,svg{max-width:100%}
+
+/* ---------- fixed layers ---------- */
+#sky{position:fixed;inset:0;width:100%;height:100%;z-index:0;display:block}
+.grain{position:fixed;inset:0;z-index:1;pointer-events:none;opacity:.35;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .07 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+header.bar{
+  position:fixed;top:env(safe-area-inset-top,0px);left:0;right:0;z-index:5;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:18px var(--gutter);
+  mix-blend-mode:screen;
+}
+.wordmark{font-family:var(--display);font-weight:700;letter-spacing:.18em;font-size:14px;text-decoration:none}
+.wordmark i{font-style:normal;color:var(--ion)}
+.bar nav{display:flex;gap:28px;font-size:14px}
+.bar nav a{text-decoration:none;color:var(--mist);transition:color .2s}
+.bar nav a:hover{color:var(--paper)}
+@media (max-width:720px){.bar nav{display:none}}
+
+.rail{position:fixed;right:calc(var(--gutter) * .5);top:50%;transform:translateY(-50%);z-index:5;display:grid;gap:14px}
+.rail a{width:6px;height:6px;border-radius:50%;background:var(--line);display:block;transition:background .3s,transform .3s}
+.rail a.on{background:var(--ion);transform:scale(1.6)}
+@media (max-width:720px){.rail{display:none}}
+
+/* ---------- sections ---------- */
+main{position:relative;z-index:2}
+.sec{position:relative;--p:0;--q:0}
+.sec .pin{position:sticky;top:0;min-height:100svh;display:flex;align-items:center;padding:calc(var(--gutter) + 40px) var(--gutter)}
+.sec.tall{min-height:200svh}
+.sec.tall .pin{min-height:100svh}
+.frame{width:min(1180px,100%);margin:0 auto}
+
+h1,h2{font-family:var(--display);font-weight:500;line-height:1.08;letter-spacing:-.01em}
+h1{font-size:clamp(40px,8vw,112px);font-weight:700;letter-spacing:-.02em}
+h2{font-size:clamp(28px,3.6vw,52px);max-width:16ch}
+.lede{color:var(--mist);max-width:var(--measure);margin-top:1.2em}
+.lede strong{color:var(--paper);font-weight:500}
+.mono{font-family:var(--mono);font-size:.78em;color:var(--mist)}
+
+/* reveal driven by --p (0→1 as section enters) */
+.r{opacity:calc(var(--p) * 1.4 - .2);transform:translateY(calc((1 - var(--p)) * 28px));will-change:transform,opacity}
+.r.d1{opacity:calc(var(--p) * 1.6 - .4);transform:translateY(calc((1 - var(--p)) * 36px))}
+.r.d2{opacity:calc(var(--p) * 1.8 - .6);transform:translateY(calc((1 - var(--p)) * 44px))}
+
+/* 1 · hero */
+#hero .pin{min-height:100svh;align-items:flex-end}
+#hero h1{display:flex;flex-direction:column;gap:.1em}
+#hero h1 span:nth-child(2){font-weight:300;font-size:.42em;letter-spacing:.02em;color:var(--ion)}
+#hero .lede{max-width:48ch}
+.cta{display:inline-flex;align-items:center;gap:12px;margin-top:2em;padding:14px 22px;border:1px solid var(--ion);border-radius:999px;color:var(--paper);text-decoration:none;font-size:15px;font-weight:500;background:rgba(111,227,255,.06);transition:background .2s}
+.cta:hover{background:rgba(111,227,255,.16)}
+.cta b{width:8px;height:8px;border-radius:50%;background:var(--ion);box-shadow:0 0 12px var(--ion);animation:pulse 2.4s infinite}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(.6)}}
+.scrollhint{position:absolute;left:var(--gutter);bottom:28px;display:flex;align-items:center;gap:10px;color:var(--mist);font-size:13px;opacity:calc(1 - var(--p) * 2)}
+.scrollhint i{width:1px;height:38px;background:linear-gradient(var(--ion),transparent)}
+
+/* 2 · one feed — counters */
+#feed .frame{display:grid;gap:40px;grid-template-columns:1fr 1fr}
+@media (max-width:860px){#feed .frame{grid-template-columns:1fr}}
+.stats{display:grid;gap:28px;align-self:end}
+.stat{border-top:1px solid var(--line);padding-top:16px;display:grid;grid-template-columns:1fr auto;align-items:baseline;gap:16px}
+.stat .n{font-family:var(--display);font-size:clamp(34px,4.4vw,60px);font-weight:500;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.stat .n small{font-size:.4em;color:var(--mist);margin-left:.3em;font-weight:300}
+.stat p{color:var(--mist);font-size:15px;max-width:22ch;text-align:right}
+
+/* 3 · ground network — map */
+#ground .pin{flex-direction:column;justify-content:center;gap:28px}
+#ground .copy{width:min(1180px,100%);display:flex;justify-content:space-between;align-items:flex-end;gap:32px;flex-wrap:wrap}
+#ground .copy .lede{margin-top:0;max-width:38ch}
+.map{width:min(1180px,100%);max-height:50svh;aspect-ratio:2/1;position:relative}
+.map svg{width:100%;height:100%;display:block}
+.map .grid circle{fill:var(--line)}
+.map .track{fill:none;stroke:var(--sun);stroke-width:1.2;stroke-dasharray:2000;stroke-dashoffset:calc(2000 * (1 - var(--q)))}
+.map .link{fill:none;stroke:var(--ion);stroke-width:1;opacity:.65;stroke-dasharray:1200;stroke-dashoffset:calc(1200 * (1 - var(--q)))}
+.map .st{fill:var(--ion)}
+.map text{font-family:var(--mono);font-size:11px;fill:var(--mist)}
+@media (max-width:720px){.map text{font-size:16px}}
+.map .pass{fill:var(--sun)}
+
+/* 4 · downlink — readout */
+#downlink .frame{display:grid;grid-template-columns:1.05fr .95fr;gap:48px;align-items:center}
+@media (max-width:860px){#downlink .frame{grid-template-columns:1fr}}
+.readout{font-family:var(--mono);font-size:clamp(12px,1.05vw,14.5px);line-height:1.9;background:rgba(11,18,34,.72);border:1px solid var(--line);border-radius:6px;padding:22px 24px;backdrop-filter:blur(6px);position:relative;overflow:hidden}
+.readout::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:linear-gradient(var(--ion),transparent)}
+.readout .ln{display:grid;grid-template-columns:11ch 1fr auto;gap:12px;opacity:0;transform:translateX(-8px);transition:opacity .35s,transform .35s}
+.readout .ln.show{opacity:1;transform:none}
+.readout .k{color:var(--mist)}
+.readout .v{color:var(--paper)}
+.readout .u{color:var(--mist)}
+.readout .ln.ok .v{color:var(--ion)}
+.readout .ln.warn .v{color:var(--sun)}
+.readout .cursor{display:inline-block;width:.6em;height:1.1em;background:var(--ion);vertical-align:text-bottom;animation:blink 1s steps(2) infinite}
+@keyframes blink{50%{opacity:0}}
+
+/* 5 · anomaly — chart */
+#anomaly .pin{flex-direction:column;justify-content:center;gap:28px}
+#anomaly .copy{width:min(1180px,100%)}
+.chart{width:min(1180px,100%);height:min(46vh,380px);position:relative}
+.chart svg{width:100%;height:100%;display:block;overflow:visible}
+.chart .axis{stroke:var(--line);stroke-width:1}
+.chart .trace{fill:none;stroke:var(--ion);stroke-width:1.6;stroke-linejoin:round}
+.chart .band{fill:rgba(111,227,255,.06)}
+.chart .mark{opacity:0;transition:opacity .4s}
+.chart .mark.show{opacity:1}
+.chart .mark circle{fill:none;stroke:var(--alert);stroke-width:1.5}
+.chart .mark line{stroke:var(--alert);stroke-width:1;stroke-dasharray:3 4}
+.chart .mark text{font-family:var(--mono);font-size:12px;fill:var(--alert)}
+.chart .tag{font-family:var(--mono);font-size:11px;fill:var(--mist)}
+.verdict{display:flex;gap:18px;align-items:center;font-size:15px;color:var(--mist);opacity:0;transform:translateY(10px);transition:opacity .4s,transform .4s}
+.verdict.show{opacity:1;transform:none}
+.verdict b{color:var(--alert);font-weight:500}
+.verdict i{width:10px;height:10px;border-radius:50%;background:var(--alert);box-shadow:0 0 14px var(--alert)}
+
+/* 6 · conjunction */
+#conj .frame{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center}
+@media (max-width:860px){#conj .frame{grid-template-columns:1fr}}
+.orbits{aspect-ratio:1;max-height:62svh;margin-inline:auto;width:100%;max-width:560px}
+.orbits svg{width:100%;height:100%;display:block;overflow:visible}
+.orbits .ring{fill:none;stroke:var(--line);stroke-width:1}
+.orbits .a{fill:var(--ion)}
+.orbits .b{fill:var(--sun)}
+.orbits .miss{stroke:var(--alert);stroke-width:1;stroke-dasharray:3 3}
+.orbits text{font-family:var(--mono);font-size:12px;fill:var(--mist)}
+.distance{display:grid;gap:6px;margin-top:1.6em}
+.distance .n{font-family:var(--display);font-size:clamp(44px,6vw,80px);font-weight:500;letter-spacing:-.02em;font-variant-numeric:tabular-nums;transition:color .3s}
+.distance .n small{font-size:.35em;color:var(--mist);font-weight:300;margin-left:.3em}
+.distance.hot .n{color:var(--alert)}
+.advice{margin-top:1.2em;padding:14px 18px;border-left:2px solid var(--sun);color:var(--paper);font-size:15px;background:rgba(255,180,84,.06);opacity:0;transform:translateY(8px);transition:opacity .35s,transform .35s}
+.advice.show{opacity:1;transform:none}
+.advice span{color:var(--mist)}
+
+/* 7 · built for teams */
+#teams .frame{display:grid;grid-template-columns:1fr 1.4fr;gap:48px;align-items:start}
+@media (max-width:860px){#teams .frame{grid-template-columns:1fr}}
+dl.caps{display:grid}
+dl.caps > div{display:grid;grid-template-columns:minmax(120px,.5fr) 1fr;gap:24px;padding:22px 0;border-top:1px solid var(--line);
+  opacity:calc(var(--q) * 3.4 - var(--i) * .5);transform:translateY(calc((1 - clamp(0, var(--q) * 3.4 - var(--i) * .5, 1)) * 18px))}
+dl.caps > div:last-child{border-bottom:1px solid var(--line)}
+dl.caps dt{font-family:var(--display);font-weight:500;font-size:15px;line-height:1.4;color:var(--ion)}
+dl.caps dd{color:var(--mist);max-width:50ch}
+dl.caps dd strong{color:var(--paper);font-weight:500}
+
+/* 8 · close */
+#close .pin{min-height:100svh;flex-direction:column;justify-content:center;text-align:center}
+#close h2{max-width:none;font-size:clamp(34px,6vw,84px);font-weight:700;letter-spacing:-.02em}
+#close .lede{margin-inline:auto;max-width:44ch}
+#close .cta{margin-top:2.2em}
+footer{width:min(1180px,100%);margin-top:auto;display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;padding-top:48px;font-size:13px;color:var(--mist)}
+footer a{text-decoration:none}
+footer a:hover{color:var(--paper)}
+
+/* ---------- motion preference ---------- */
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  .sec{--p:1;--q:1}
+  .r,.readout .ln,.chart .mark,.verdict,.advice,.map .st{opacity:1 !important;transform:none !important;transition:none}
+  .cta b,.readout .cursor{animation:none}
+}
+</style>
+<noscript><style>.sec{--p:1;--q:1}.readout .ln,.chart .mark,.verdict,.advice{opacity:1;transform:none}</style></noscript>
+</head>
+<body>
+
+<canvas id="sky" aria-hidden="true"></canvas>
+<div class="grain" aria-hidden="true"></div>
+
+<header class="bar">
+  <a class="wordmark" href="#hero">VECTR<i>A</i></a>
+  <nav aria-label="Sections">
+    <a href="#feed">Feed</a>
+    <a href="#ground">Ground</a>
+    <a href="#anomaly">Anomalies</a>
+    <a href="#conj">Screening</a>
+    <a href="#close">Access</a>
+  </nav>
+</header>
+
+<nav class="rail" aria-label="Page progress" id="rail"></nav>
+
+<main>
+
+<!-- 1 · hero -->
+<section class="sec" id="hero" data-cam="hero">
+  <div class="pin">
+    <div class="frame">
+      <h1 class="r"><span>VECTRA</span><span>Orbital telemetry</span></h1>
+      <p class="lede r d1">Every object you fly, in one live feed. Position, health and intent, decoded the moment the downlink lands, <strong>not after the pass is over.</strong></p>
+      <a class="cta r d2" href="#close"><b aria-hidden="true"></b>Watch a live pass</a>
+    </div>
+    <div class="scrollhint" aria-hidden="true"><i></i><span>Scroll to begin acquisition</span></div>
+  </div>
+</section>
+
+<!-- 2 · one feed -->
+<section class="sec" id="feed" data-cam="feed">
+  <div class="pin">
+    <div class="frame">
+      <div>
+        <h2 class="r">Every orbit, one feed.</h2>
+        <p class="lede r d1">Operators juggle a dozen tools: a tracking catalogue here, a health dashboard there, a spreadsheet for manoeuvre plans. VECTRA fuses radar, optical and on-board telemetry into a single stream, so the question <strong>where is it and is it okay</strong> has one answer.</p>
+      </div>
+      <div class="stats r d2">
+        <div class="stat"><span class="n"><span data-count="14200">0</span></span><p>objects under continuous track, LEO to GEO</p></div>
+        <div class="stat"><span class="n"><span data-count="38">0</span><small>stations</small></span><p>in the partner ground network, pole to pole</p></div>
+        <div class="stat"><span class="n"><span data-count="90">0</span><small>ms</small></span><p>from antenna to your screen, median</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 3 · ground network -->
+<section class="sec tall" id="ground" data-cam="ground">
+  <div class="pin">
+    <div class="copy">
+      <h2 class="r">The ground network follows the pass.</h2>
+      <p class="lede r d1">As your satellite crosses the sky, VECTRA hands the link from station to station. No gaps, no manual scheduling.</p>
+    </div>
+    <div class="map r d2" aria-label="World map showing ground stations and a satellite ground track">
+      <svg viewBox="0 0 800 400" id="map" role="img"></svg>
+    </div>
+  </div>
+</section>
+
+<!-- 4 · downlink -->
+<section class="sec tall" id="downlink" data-cam="downlink">
+  <div class="pin">
+    <div class="frame">
+      <div>
+        <h2 class="r">Raw packets in. Plain answers out.</h2>
+        <p class="lede r d1">Binary frames are parsed against your own telemetry definitions and checked against limits as they arrive. Anything outside its band is flagged in the same breath it is received.</p>
+      </div>
+      <div class="readout r d2" id="readout" aria-live="polite" aria-label="Live telemetry readout">
+        <div class="ln"><span class="k">EPOCH</span><span class="v">2026-10-09T06:41:12Z</span><span class="u">UTC</span></div>
+        <div class="ln"><span class="k">OBJECT</span><span class="v">VTR-0417 · Kestrel-3</span><span class="u">NORAD 61928</span></div>
+        <div class="ln ok"><span class="k">LINK</span><span class="v">LOCKED · S-band</span><span class="u">Svalbard</span></div>
+        <div class="ln"><span class="k">ALT</span><span class="v">547.21</span><span class="u">km</span></div>
+        <div class="ln"><span class="k">VEL</span><span class="v">7.594</span><span class="u">km/s</span></div>
+        <div class="ln"><span class="k">INCL</span><span class="v">97.42</span><span class="u">deg</span></div>
+        <div class="ln ok"><span class="k">BUS V</span><span class="v">28.1</span><span class="u">V · nominal</span></div>
+        <div class="ln warn"><span class="k">BATT T</span><span class="v">31.6</span><span class="u">°C · upper band</span></div>
+        <div class="ln ok"><span class="k">ATT ERR</span><span class="v">0.004</span><span class="u">deg</span></div>
+        <div class="ln"><span class="k">PAYLOAD</span><span class="v">imaging · 2 of 6 queued</span><span class="u">—</span></div>
+        <div class="ln ok"><span class="k">SNR</span><span class="v">14.2</span><span class="u">dB</span></div>
+        <div class="ln"><span class="k">NEXT PASS</span><span class="v">Fairbanks · 07:29:40Z</span><span class="u">11 min</span></div>
+        <div class="ln"><span class="k"></span><span class="v"><span class="cursor" aria-hidden="true"></span></span><span class="u"></span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 5 · anomaly -->
+<section class="sec tall" id="anomaly" data-cam="anomaly">
+  <div class="pin">
+    <div class="copy">
+      <h2 class="r">Anomalies, caught on the trace.</h2>
+      <p class="lede r d1">Limit checks catch the obvious. VECTRA also learns each subsystem's normal rhythm over weeks of passes, so a slow drift gets flagged long before a red line is crossed.</p>
+    </div>
+    <div class="chart r d2" aria-label="Battery temperature over a 90-minute orbit with an anomaly marked">
+      <svg viewBox="0 0 600 220" id="chart" role="img"></svg>
+    </div>
+    <div class="verdict" id="verdict"><i aria-hidden="true"></i><span><b>Battery T drift</b> · 2.4 °C above learned envelope · raised 38 min before limit</span></div>
+  </div>
+</section>
+
+<!-- 6 · conjunction -->
+<section class="sec tall" id="conj" data-cam="conj">
+  <div class="pin">
+    <div class="frame">
+      <div class="orbits r d2" aria-label="Two orbits converging toward a close approach">
+        <svg viewBox="0 0 400 400" id="orbits" role="img"></svg>
+      </div>
+      <div>
+        <h2 class="r">Screen every close approach.</h2>
+        <p class="lede r d1">Conjunction assessment runs continuously against the full catalogue, not once a day. When a miss distance drops, you see it close, and the recommended burn comes with it.</p>
+        <div class="distance" id="distance"><span class="mono">predicted miss distance · TCA 14:02:51Z</span><span class="n"><span id="miss">12.40</span><small>km</small></span></div>
+        <div class="advice" id="advice">Manoeuvre recommended <span>· +0.12 m/s prograde at 13:11Z · raises miss to 4.8 km · fuel cost 0.003 kg</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 7 · built for teams -->
+<section class="sec tall" id="teams" data-cam="teams">
+  <div class="pin">
+    <div class="frame">
+      <div>
+        <h2 class="r">Built for the teams who fly.</h2>
+        <p class="lede r d1">From a two-person CubeSat crew to a constellation operations floor, the same feed, the same answers.</p>
+      </div>
+      <dl class="caps">
+        <div style="--i:0"><dt>Catalogue fusion</dt><dd><strong>Radar, optical and on-board sources</strong> reconciled into one state vector per object, with covariance you can inspect.</dd></div>
+        <div style="--i:1"><dt>Your definitions</dt><dd>Upload your telemetry database in XTCE or CSV. <strong>Packets decode on arrival</strong>, no custom parser to maintain.</dd></div>
+        <div style="--i:2"><dt>Learned envelopes</dt><dd>Normal behaviour is modelled per subsystem and per orbit phase. <strong>Drift is flagged before limits are hit.</strong></dd></div>
+        <div style="--i:3"><dt>Manoeuvre planning</dt><dd>Burns are proposed with delta-v, timing and fuel cost, then <strong>exported straight to your command sequence.</strong></dd></div>
+        <div style="--i:4"><dt>Open by default</dt><dd>Every feed is available over WebSocket and REST. <strong>Your data leaves whenever you want it to.</strong></dd></div>
+      </dl>
+    </div>
+  </div>
+</section>
+
+<!-- 8 · close -->
+<section class="sec" id="close" data-cam="close">
+  <div class="pin">
+    <div class="frame">
+      <h2 class="r">Fly with the full picture.</h2>
+      <p class="lede r d1">Join a live pass with our flight team and watch your own object acquired, decoded and screened, end to end, in under ten minutes.</p>
+      <a class="cta r d2" href="mailto:flight@vectra.example"><b aria-hidden="true"></b>Request access</a>
+    </div>
+    <footer>
+      <span>© 2026 VECTRA Systems</span>
+      <span><a href="#">Documentation</a> &nbsp;·&nbsp; <a href="#">Status</a> &nbsp;·&nbsp; <a href="#">Privacy</a></span>
+    </footer>
+  </div>
+</section>
+
+</main>
+
+<script>
+(() => {
+'use strict';
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+const ease = t => 1 - Math.pow(1 - t, 3);
+
+/* ============ scroll state ============ */
+const sections = [...document.querySelectorAll('.sec')];
+const rail = document.getElementById('rail');
+sections.forEach((s, i) => {
+  const a = document.createElement('a');
+  a.href = '#' + s.id; a.setAttribute('aria-label', 'Section ' + (i + 1));
+  rail.appendChild(a);
+});
+const dots = [...rail.children];
+let active = 0;
+
+function updateScroll() {
+  const vh = innerHeight;
+  let best = 0, bestD = Infinity;
+  sections.forEach((s, i) => {
+    const r = s.getBoundingClientRect();
+    // p: section entering (0 at 85% viewport, 1 at 25%)
+    const p = clamp((vh * 0.85 - r.top) / (vh * 0.6), 0, 1);
+    // q: progress through the section's own scroll (for tall, pinned sections)
+    const span = Math.max(1, r.height - vh);
+    const q = s.classList.contains('tall') ? clamp(-r.top / span, 0, 1) : p;
+    if (!reduce) { s.style.setProperty('--p', p.toFixed(4)); s.style.setProperty('--q', q.toFixed(4)); }
+    s._p = reduce ? 1 : p; s._q = reduce ? 1 : q;
+    // active = section covering viewport centre
+    const d = Math.abs(r.top + Math.min(r.height, vh) / 2 - vh / 2);
+    if (r.top < vh / 2 && r.bottom > vh / 2) { best = i; bestD = 0; }
+    else if (bestD && d < bestD) { bestD = d; best = i; }
+  });
+  if (best !== active) { active = best; dots.forEach((d, i) => d.classList.toggle('on', i === active)); }
+  counters(); readout(); chart(); conj();
+}
+
+/* ============ 2 · counters ============ */
+const counts = [...document.querySelectorAll('[data-count]')];
+function counters() {
+  const p = ease(document.getElementById('feed')._p || 0);
+  counts.forEach(el => {
+    const t = +el.dataset.count;
+    el.textContent = Math.round(t * p).toLocaleString('en-US');
+  });
+}
+
+/* ============ 3 · ground map ============ */
+(function buildMap() {
+  const svg = document.getElementById('map');
+  const NS = 'http://www.w3.org/2000/svg';
+  const el = (n, a) => { const e = document.createElementNS(NS, n); for (const k in a) e.setAttribute(k, a[k]); return e; };
+  const X = lon => (lon + 180) / 360 * 800, Y = lat => (90 - lat) / 180 * 400;
+  const grid = el('g', { class: 'grid' });
+  for (let lat = -80; lat <= 80; lat += 10) for (let lon = -180; lon < 180; lon += 10) {
+    // thin the grid toward the poles so it reads like a globe projection
+    if (Math.abs(lat) > 60 && lon % 20 !== 0) continue;
+    grid.appendChild(el('circle', { cx: X(lon), cy: Y(lat), r: 1.1 }));
+  }
+  svg.appendChild(grid);
+  // satellite ground track: a sun-synchronous-ish sine across the map
+  let d = '';
+  for (let lon = -180; lon <= 180; lon += 4) {
+    const lat = 80 * Math.sin((lon + 30) / 180 * Math.PI * 1.15);
+    d += (lon === -180 ? 'M' : 'L') + X(lon).toFixed(1) + ' ' + Y(lat).toFixed(1) + ' ';
+  }
+  svg.appendChild(el('path', { class: 'track', d }));
+  const stations = [
+    ['Fairbanks', 64.8, -147.7], ['Svalbard', 78.2, 15.4], ['Kourou', 5.2, -52.6],
+    ['Hartebeesthoek', -25.9, 27.7], ['Alice Springs', -23.8, 133.9], ['Punta Arenas', -53.2, -70.9],
+    ['Troll', -72.0, 2.5], ['Kiruna', 67.9, 21.1], ['Hawaii', 19.8, -155.5], ['Singapore', 1.3, 103.8]
+  ];
+  // handover links between successive stations along the pass
+  const order = [5, 2, 8, 0, 1, 7, 3, 6, 4, 9];
+  let ld = '';
+  order.forEach((idx, i) => {
+    const [, la, lo] = stations[idx];
+    if (i === 0) { ld += 'M' + X(lo) + ' ' + Y(la) + ' '; return; }
+    const [, pla, plo] = stations[order[i - 1]];
+    const mx = (X(lo) + X(plo)) / 2, my = (Y(la) + Y(pla)) / 2 - 40;
+    ld += 'Q' + mx + ' ' + my + ' ' + X(lo) + ' ' + Y(la) + ' ';
+  });
+  svg.appendChild(el('path', { class: 'link', d: ld }));
+  stations.forEach(([name, la, lo]) => {
+    const g = el('g', {});
+    g.appendChild(el('circle', { class: 'st', cx: X(lo), cy: Y(la), r: 3 }));
+    g.appendChild(el('circle', { class: 'st', cx: X(lo), cy: Y(la), r: 7, style: 'fill:none;stroke:var(--ion);stroke-width:.8;opacity:.5' }));
+    const t = el('text', { x: X(lo) + 10, y: Y(la) + 4 }); t.textContent = name; g.appendChild(t);
+    svg.appendChild(g);
+  });
+  svg.appendChild(el('circle', { class: 'pass', id: 'passdot', r: 4, cx: X(-180), cy: Y(0) }));
+  window._mapTrack = { X, Y, pass: svg.querySelector('#passdot') };
+})();
+
+/* ============ 4 · readout ============ */
+const lines = [...document.querySelectorAll('#readout .ln')];
+function readout() {
+  const q = document.getElementById('downlink')._q || 0;
+  const n = lines.length;
+  lines.forEach((l, i) => l.classList.toggle('show', q * 1.15 >= i / (n - 1)));
+  // map pass dot follows ground section progress
+  const g = document.getElementById('ground')._q || 0;
+  const { X, Y, pass } = window._mapTrack;
+  const lon = -180 + 360 * g;
+  const lat = 80 * Math.sin((lon + 30) / 180 * Math.PI * 1.15);
+  pass.setAttribute('cx', X(lon)); pass.setAttribute('cy', Y(lat));
+}
+
+/* ============ 5 · anomaly chart ============ */
+let trace, traceLen = 0, mark, verdict;
+(function buildChart() {
+  const svg = document.getElementById('chart');
+  const NS = 'http://www.w3.org/2000/svg';
+  const el = (n, a) => { const e = document.createElementNS(NS, n); for (const k in a) e.setAttribute(k, a[k]); return e; };
+  // learned envelope band
+  svg.appendChild(el('rect', { class: 'band', x: 0, y: 70, width: 600, height: 70 }));
+  for (let y = 20; y <= 200; y += 60) svg.appendChild(el('line', { class: 'axis', x1: 0, x2: 600, y1: y, y2: y }));
+  const ticks = ['06:00', '06:30', '07:00', '07:30'];
+  ticks.forEach((t, i) => { const e = el('text', { class: 'tag', x: i * 190 + 2, y: 216 }); e.textContent = t; svg.appendChild(e); });
+  const env = el('text', { class: 'tag', x: 4, y: 84 }); env.textContent = 'learned envelope'; svg.appendChild(env);
+  const lim = el('text', { class: 'tag', x: 4, y: 34 }); lim.textContent = 'hard limit 36 °C'; svg.appendChild(lim);
+  svg.appendChild(el('line', { class: 'axis', x1: 0, x2: 600, y1: 40, y2: 40, style: 'stroke:var(--sun);stroke-dasharray:2 5' }));
+  // seeded pseudo-random series: eclipse cooling, sunlit warming, then drift after x≈400
+  let s = 7; const rnd = () => (s = (s * 16807) % 2147483647) / 2147483647;
+  let d = '', y = 105;
+  for (let x = 0; x <= 600; x += 6) {
+    const orbit = Math.sin(x / 600 * Math.PI * 2 - 1.2) * 22;
+    const drift = x > 400 ? -(x - 400) * 0.22 : 0;
+    y = 105 + orbit + drift + (rnd() - 0.5) * 7;
+    d += (x === 0 ? 'M' : 'L') + x + ' ' + y.toFixed(1) + ' ';
+  }
+  trace = el('path', { class: 'trace', d }); svg.appendChild(trace);
+  traceLen = trace.getTotalLength();
+  trace.style.strokeDasharray = traceLen; trace.style.strokeDashoffset = traceLen;
+  mark = el('g', { class: 'mark' });
+  mark.appendChild(el('line', { x1: 452, x2: 452, y1: 20, y2: 200 }));
+  mark.appendChild(el('circle', { cx: 452, cy: 76, r: 7 }));
+  const t = el('text', { x: 462, y: 60 }); t.textContent = 'drift detected 07:11Z'; mark.appendChild(t);
+  svg.appendChild(mark);
+  verdict = document.getElementById('verdict');
+})();
+function chart() {
+  const q = document.getElementById('anomaly')._q || 0;
+  const t = clamp(q * 1.25, 0, 1);
+  trace.style.strokeDashoffset = traceLen * (1 - t);
+  mark.classList.toggle('show', t > 0.78);
+  verdict.classList.toggle('show', t > 0.9);
+}
+
+/* ============ 6 · conjunction ============ */
+let satA, satB, missLine, missEl, distBox, advice;
+(function buildOrbits() {
+  const svg = document.getElementById('orbits');
+  const NS = 'http://www.w3.org/2000/svg';
+  const el = (n, a) => { const e = document.createElementNS(NS, n); for (const k in a) e.setAttribute(k, a[k]); return e; };
+  // central body
+  svg.appendChild(el('circle', { cx: 200, cy: 200, r: 34, style: 'fill:none;stroke:var(--line);stroke-width:1' }));
+  svg.appendChild(el('circle', { cx: 200, cy: 200, r: 3, style: 'fill:var(--mist)' }));
+  // orbit A (ours), orbit B (debris) — two ellipses that cross near (300, 130)
+  svg.appendChild(el('ellipse', { class: 'ring', cx: 200, cy: 200, rx: 150, ry: 110, transform: 'rotate(-18 200 200)' }));
+  svg.appendChild(el('ellipse', { class: 'ring', cx: 200, cy: 200, rx: 160, ry: 70, transform: 'rotate(42 200 200)' }));
+  missLine = el('line', { class: 'miss' }); svg.appendChild(missLine);
+  satA = el('circle', { class: 'a', r: 5 }); satB = el('circle', { class: 'b', r: 4 });
+  svg.appendChild(satA); svg.appendChild(satB);
+  const la = el('text', { x: 16, y: 388 }); la.textContent = '● VTR-0417 (yours)'; la.style.fill = 'var(--ion)'; svg.appendChild(la);
+  const lb = el('text', { x: 230, y: 388 }); lb.textContent = '● SL-16 R/B debris'; lb.style.fill = 'var(--sun)'; svg.appendChild(lb);
+  missEl = document.getElementById('miss'); distBox = document.getElementById('distance'); advice = document.getElementById('advice');
+})();
+function ellipsePt(cx, cy, rx, ry, rot, t) {
+  const c = Math.cos(rot), s = Math.sin(rot), x = rx * Math.cos(t), y = ry * Math.sin(t);
+  return [cx + x * c - y * s, cy + x * s + y * c];
+}
+function conj() {
+  const q = document.getElementById('conj')._q || 0;
+  const t = ease(clamp(q * 1.2, 0, 1));
+  // both objects approach the crossing point near t_end
+  const a = ellipsePt(200, 200, 150, 110, -18 * Math.PI / 180, lerp(-2.4, -0.62, t));
+  const b = ellipsePt(200, 200, 160, 70, 42 * Math.PI / 180, lerp(2.6, -0.52 + 0.08, t));
+  satA.setAttribute('cx', a[0]); satA.setAttribute('cy', a[1]);
+  satB.setAttribute('cx', b[0]); satB.setAttribute('cy', b[1]);
+  missLine.setAttribute('x1', a[0]); missLine.setAttribute('y1', a[1]);
+  missLine.setAttribute('x2', b[0]); missLine.setAttribute('y2', b[1]);
+  missLine.style.opacity = t > 0.35 ? 1 : 0;
+  const km = lerp(12.4, 0.21, t);
+  missEl.textContent = km.toFixed(2);
+  distBox.classList.toggle('hot', km < 1);
+  advice.classList.toggle('show', km < 0.6);
+}
+
+/* ============ 7 · caps use CSS --q directly ============ */
+
+/* ============ sky canvas ============ */
+const cv = document.getElementById('sky'), ctx = cv.getContext('2d');
+let W = 0, H = 0;
+function resize() {
+  const dpr = Math.min(devicePixelRatio || 1, 2);
+  W = innerWidth; H = innerHeight;
+  cv.width = W * dpr; cv.height = H * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  makeStars();
+}
+let stars = [];
+function makeStars() {
+  let s = 42; const rnd = () => (s = (s * 16807) % 2147483647) / 2147483647;
+  stars = Array.from({ length: Math.round(W * H / 6000) }, () => ({ x: rnd() * W, y: rnd() * H * 1.6, r: rnd() * 1.1 + .2, a: rnd() * .6 + .2 }));
+}
+// sphere sample points
+const N = 760, pts = [];
+const golden = Math.PI * (3 - Math.sqrt(5));
+for (let i = 0; i < N; i++) {
+  const y = 1 - (i / (N - 1)) * 2, r = Math.sqrt(1 - y * y), th = golden * i;
+  pts.push([Math.cos(th) * r, y, Math.sin(th) * r]);
+}
+const orbits = [
+  { inc: 1.69, raan: 0.4, rad: 1.42, speed: 0.00050, phase: 0.0 },   // polar / SSO
+  { inc: 0.92, raan: 2.1, rad: 1.62, speed: 0.00036, phase: 2.1 },
+  { inc: 0.40, raan: 4.0, rad: 2.10, speed: 0.00020, phase: 4.2 },
+  { inc: 1.25, raan: 5.3, rad: 1.30, speed: 0.00062, phase: 1.3 }
+];
+const groundSites = [[1.36, 0.27], [0.09, -0.92], [-0.45, 0.48], [-0.42, 2.34]]; // [lat, lon] rad
+function rotY(p, a) { const c = Math.cos(a), s = Math.sin(a); return [p[0] * c + p[2] * s, p[1], -p[0] * s + p[2] * c]; }
+function rotX(p, a) { const c = Math.cos(a), s = Math.sin(a); return [p[0], p[1] * c - p[2] * s, p[1] * s + p[2] * c]; }
+function rotZ(p, a) { const c = Math.cos(a), s = Math.sin(a); return [p[0] * c - p[1] * s, p[0] * s + p[1] * c, p[2]]; }
+
+// camera targets per section
+const isNarrow = () => innerWidth < 860;
+const CAMS = {
+  hero:     () => isNarrow() ? { x: .5,  y: .30, r: .46, tilt: .35, a: 1 }   : { x: .74, y: .50, r: .52, tilt: .35, a: 1 },
+  feed:     () => isNarrow() ? { x: .5,  y: .18, r: .34, tilt: .50, a: .55 } : { x: .76, y: .32, r: .36, tilt: .55, a: .75 },
+  ground:   () => ({ x: .5, y: .5, r: .70, tilt: .20, a: .18 }),
+  downlink: () => isNarrow() ? { x: .85, y: .12, r: .30, tilt: .60, a: .45 } : { x: .12, y: .55, r: .42, tilt: .60, a: .55 },
+  anomaly:  () => ({ x: .88, y: .18, r: .28, tilt: .80, a: .35 }),
+  conj:     () => isNarrow() ? { x: .5,  y: .10, r: .25, tilt: .90, a: .35 } : { x: .28, y: .5, r: .30, tilt: .90, a: .35 }, // behind the SVG, faint
+  teams:    () => ({ x: .5, y: 1.18, r: .80, tilt: .05, a: .45 }),  // horizon
+  close:    () => ({ x: .5, y: .62, r: .40, tilt: .30, a: .95 })
+};
+const cam = { x: .74, y: .5, r: .52, tilt: .35, a: 1 };
+let lastT = 0, spin = 0;
+
+function draw(now) {
+  const dt = Math.min(48, now - lastT || 16); lastT = now;
+  const target = CAMS[sections[active].dataset.cam]();
+  const k = reduce ? 1 : 1 - Math.pow(0.001, dt / 1000); // smooth follow
+  for (const key in target) cam[key] = lerp(cam[key], target[key], k);
+  if (!reduce) spin += dt * 0.00011;
+
+  ctx.clearRect(0, 0, W, H);
+  // stars with gentle parallax
+  const sy = scrollY * 0.08;
+  ctx.fillStyle = '#E8EEF7';
+  for (const s of stars) {
+    const y = ((s.y - sy) % (H * 1.6) + H * 1.6) % (H * 1.6);
+    ctx.globalAlpha = s.a; ctx.beginPath(); ctx.arc(s.x, y, s.r, 0, 6.283); ctx.fill();
+  }
+
+  const R = Math.min(W, H) * cam.r, cx = W * cam.x, cy = H * cam.y;
+  ctx.globalAlpha = cam.a;
+  // limb glow
+  const g = ctx.createRadialGradient(cx, cy, R * .92, cx, cy, R * 1.22);
+  g.addColorStop(0, 'rgba(111,227,255,.20)'); g.addColorStop(.5, 'rgba(111,227,255,.05)'); g.addColorStop(1, 'rgba(111,227,255,0)');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, R * 1.22, 0, 6.283); ctx.fill();
+  // body fill (keeps far-side orbit segments behind it readable as "behind")
+  ctx.fillStyle = 'rgba(5,8,17,.92)'; ctx.beginPath(); ctx.arc(cx, cy, R, 0, 6.283); ctx.fill();
+
+  const F = 3.4; // perspective
+  const proj = p => { const s = F / (F - p[2]); return [cx + p[0] * s * R, cy - p[1] * s * R, s, p[2]]; };
+  const view = p => rotX(rotY(p, spin), cam.tilt);
+  const light = [-0.55, 0.45, 0.70];
+
+  // surface points
+  for (const p0 of pts) {
+    const p = view(p0);
+    if (p[2] < -0.05) continue;
+    const lit = Math.max(0, p[0] * light[0] + p[1] * light[1] + p[2] * light[2]);
+    const [x, y, s] = proj(p);
+    const a = 0.12 + lit * 0.75;
+    ctx.fillStyle = lit > 0.55 ? `rgba(232,238,247,${a})` : `rgba(111,227,255,${a})`;
+    ctx.beginPath(); ctx.arc(x, y, 0.9 * s + lit * 0.6, 0, 6.283); ctx.fill();
+  }
+  // ground sites
+  const sites = groundSites.map(([la, lo]) => view([Math.cos(la) * Math.cos(lo), Math.sin(la), Math.cos(la) * Math.sin(lo)]));
+  for (const s of sites) {
+    if (s[2] < 0.05) continue;
+    const [x, y] = proj(s);
+    ctx.strokeStyle = 'rgba(255,180,84,.9)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(x, y, 3.5, 0, 6.283); ctx.stroke();
+  }
+  // orbits + satellites
+  for (const o of orbits) {
+    const orbitPt = t => { let p = [Math.cos(t) * o.rad, Math.sin(t) * o.rad, 0]; p = rotX(p, o.inc); p = rotY(p, o.raan); return view(p); };
+    ctx.lineWidth = 1;
+    let prev = null;
+    for (let i = 0; i <= 140; i++) {
+      const p = orbitPt(i / 140 * 6.283);
+      const [x, y] = proj(p);
+      const hidden = p[2] < 0 && Math.hypot(p[0], p[1]) < 1;
+      if (prev && !hidden && !prev.hidden) {
+        ctx.strokeStyle = p[2] > 0 ? 'rgba(143,160,191,.55)' : 'rgba(143,160,191,.22)';
+        ctx.beginPath(); ctx.moveTo(prev.x, prev.y); ctx.lineTo(x, y); ctx.stroke();
+      }
+      prev = { x, y, hidden };
+    }
+    const t = now * o.speed + o.phase;
+    const sp = orbitPt(t);
+    const [sx, sy2, ss] = proj(sp);
+    const vis = !(sp[2] < 0 && Math.hypot(sp[0], sp[1]) < 1);
+    if (vis) {
+      // link to any site in view
+      for (const s of sites) {
+        const dot = (s[0] * sp[0] + s[1] * sp[1] + s[2] * sp[2]) / o.rad;
+        if (s[2] > 0.05 && dot > 0.62) {
+          const [gx, gy] = proj(s);
+          ctx.strokeStyle = 'rgba(255,180,84,.55)'; ctx.setLineDash([3, 4]);
+          ctx.beginPath(); ctx.moveTo(gx, gy); ctx.lineTo(sx, sy2); ctx.stroke(); ctx.setLineDash([]);
+        }
+      }
+      ctx.fillStyle = '#6FE3FF';
+      ctx.shadowColor = '#6FE3FF'; ctx.shadowBlur = 10;
+      ctx.beginPath(); ctx.arc(sx, sy2, 2.2 * ss, 0, 6.283); ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+  }
+  ctx.globalAlpha = 1;
+  if (!reduce) requestAnimationFrame(draw);
+}
+
+/* ============ boot ============ */
+addEventListener('resize', () => { resize(); updateScroll(); if (reduce) requestAnimationFrame(draw); }, { passive: true });
+addEventListener('scroll', () => { ticking || (ticking = true, requestAnimationFrame(() => { updateScroll(); if (reduce) draw(performance.now()); ticking = false; })); }, { passive: true });
+let ticking = false;
+resize(); updateScroll();
+requestAnimationFrame(draw);
+})();
+</script>
+</body>
+</html>
